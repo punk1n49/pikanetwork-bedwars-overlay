@@ -2,10 +2,12 @@ import os
 import requests
 import tkinter as tk
 from tkinter import ttk
+import keyboard
+import threading 
 
 LOG_PATH = r"C:\Users\sushr\AppData\Roaming\.minecraft\logs\blclient\minecraft\latest.log"
 
-def read_recent_chat_lines(n=40):
+def read_recent_chat_lines(n=5):
     with open(LOG_PATH, "r", encoding="latin-1") as f:
         lines = f.readlines()
     return [line for line in lines[-n:] if "[CHAT]" in line]
@@ -51,13 +53,10 @@ def create_overlay(stats_list):
 
     # 🪟 Always on top + Translucent + No maximize
     root.attributes("-topmost", True)
-    root.attributes("-alpha", 0.9)  # Translucent
-    root.resizable(False, False)
+    root.attributes("-alpha", 0.7)  # Translucent
+    root.resizable(True, True)
 
-    # 🪟 Custom size depending on number of stats
-    window_width = 1000
-    window_height = 500
-    root.geometry(f"{window_width}x{window_height}+100+100")
+    root.geometry("1200x600+100+100")
 
     # 🧱 Table setup
     frame = ttk.Frame(root)
@@ -85,9 +84,33 @@ def create_overlay(stats_list):
     scrollbar.pack(side="right", fill="y")
     tree.pack(expand=True, fill="both")
 
+    # Start hotkey listener in background
+    threading.Thread(target=start_hotkey_listener, args=(tree, columns), daemon=True).start()
+
     root.mainloop()
+
+def start_hotkey_listener(tree, columns):
+    def on_backslash():
+        print("🔁 Updating stats...")
+        stats = gather_all_stats()
+        if stats:
+            update_overlay(tree, columns, stats)
+
+    keyboard.add_hotkey('\\', on_backslash)
+    print("🎯 Press '\\' to refresh stats")
+    keyboard.wait()  # Keeps the listener running
+
+def update_overlay(tree, columns, stats_list):
+    for item in tree.get_children():
+        tree.delete(item)
+
+    for user_data in stats_list:
+        row = [user_data.get(col, "") for col in columns]
+        tree.insert("", "end", values=row)
 
 if __name__ == "__main__":
     stats_list = gather_all_stats()
     if stats_list:
         create_overlay(stats_list)
+
+
